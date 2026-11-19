@@ -24,7 +24,7 @@ esac
 : "${CRICTL_VERSION:?CRICTL_VERSION must be set}"
 : "${CONTAINERD_VERSION:?CONTAINERD_VERSION must be set}"
 : "${RUNC_VERSION:?RUNC_VERSION must be set}"
-: "${PAUSE_IMAGE:?PAUSE_IMAGE must be set}"
+# PAUSE_IMAGE is optional: when unset, it is read from kubeadm below.
 
 DOWNLOAD_DIR="$(mktemp -d)"
 trap 'rm -rf "$DOWNLOAD_DIR"' EXIT
@@ -53,6 +53,21 @@ for binary in kubelet kubeadm kubectl; do
 
     install -m 0755 "$DOWNLOAD_DIR/${binary}" "$BIN_DIR/${binary}"
 done
+
+# Use the pause image kubeadm expects for this Kubernetes version, so the
+# containerd sandbox image matches what kubeadm preflight checks and pulls.
+# This runs the target-arch kubeadm on the build host, which only works for
+# native builds; set PAUSE_IMAGE explicitly for cross-arch builds.
+if [[ -z "${PAUSE_IMAGE:-}" ]]; then
+    echo "==> Resolving pause image from kubeadm ${KUBERNETES_VERSION}..."
+    PAUSE_IMAGE="$("$BIN_DIR/kubeadm" config images list \
+        --kubernetes-version "$KUBERNETES_VERSION" | grep -E '/pause:' || true)"
+    if [[ -z "$PAUSE_IMAGE" ]]; then
+        echo "ERROR: could not resolve the pause image from kubeadm; set PAUSE_IMAGE explicitly" >&2
+        exit 1
+    fi
+fi
+echo "    Pause image: ${PAUSE_IMAGE}"
 
 echo "==> Downloading CNI plugins ${CNI_VERSION}..."
 cni_tarball="cni-plugins-linux-${BIN_ARCH}-${CNI_VERSION}.tgz"
@@ -133,7 +148,7 @@ cat > "$BUILDROOT/etc/containerd/config.toml" << EOF
 version = 2
 
 [plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = "${PAUSE_IMAGE:-registry.k8s.io/pause:3.10}"
+  sandbox_image = "${PAUSE_IMAGE}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]

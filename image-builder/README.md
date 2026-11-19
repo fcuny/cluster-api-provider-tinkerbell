@@ -32,7 +32,7 @@ Designed for [Tinkerbell](https://tinkerbell.org/) bare-metal provisioning.
 make build
 
 # Build with a specific Kubernetes version
-make build KUBERNETES_VERSION=v1.32.0
+make build KUBERNETES_VERSION=v1.37.2
 
 # Build for arm64 (requires arm64 host or QEMU/binfmt for cross-build)
 make build ARCH=arm64
@@ -101,11 +101,11 @@ All configuration is via Make variables:
 | `UBUNTU_VERSION` | `24.04` | Ubuntu version (`make versions` to list) |
 | `ARCH` | host arch | Target CPU architecture: `amd64` or `arm64` |
 | `FORCE` | (unset) | Set to `1` to rebuild existing images |
-| `CNI_VERSION` | `v1.7.1` | CNI plugins version |
-| `CRICTL_VERSION` | `v1.35.0` | crictl version |
-| `CONTAINERD_VERSION` | `2.2.2` | containerd version |
-| `RUNC_VERSION` | `v1.2.6` | runc version |
-| `PAUSE_IMAGE` | `registry.k8s.io/pause:3.10` | Pause container image |
+| `CNI_VERSION` | `v1.10.0` | CNI plugins version |
+| `CRICTL_VERSION` | `<k8s-minor>.0` (e.g. `v1.35.0`) | crictl version, derived from `KUBERNETES_VERSION` |
+| `CONTAINERD_VERSION` | `2.3.7` | containerd version |
+| `RUNC_VERSION` | `v1.5.3` | runc version |
+| `PAUSE_IMAGE` | (unset) | Pause container image; when unset, read from `kubeadm config images list` at build time |
 | `OCI_REGISTRY` | `ghcr.io` | OCI registry hostname |
 | `OCI_REPOSITORY` | `tinkerbell/cluster-api-provider-tinkerbell/ubuntu` | OCI repository path (appended to `OCI_REGISTRY`) |
 | `OCI_TAG` | `<ubuntu-short>-<k8s-version>-<arch>.gz` (e.g. `2404-v1.35.2-amd64.gz`) | OCI image tag |

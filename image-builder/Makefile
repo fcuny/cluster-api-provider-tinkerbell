@@ -19,11 +19,15 @@ OCI_REPOSITORY     ?= tinkerbell/cluster-api-provider-tinkerbell/ubuntu
 OCI_TAG            ?= $(UBUNTU_SHORT)-$(KUBERNETES_VERSION)-$(ARCH).gz
 
 # ── Internal component versions ───────────────────────────────────────────────
-CNI_VERSION        ?= v1.7.1
-CRICTL_VERSION     ?= v1.35.0
-CONTAINERD_VERSION ?= 2.2.2
-RUNC_VERSION       ?= v1.2.6
-PAUSE_IMAGE        ?= registry.k8s.io/pause:3.10
+CNI_VERSION        ?= v1.10.0
+# crictl follows the Kubernetes minor (e.g. v1.37.2 -> v1.37.0).
+KUBERNETES_MINOR   := $(word 1,$(subst ., ,$(KUBERNETES_VERSION))).$(word 2,$(subst ., ,$(KUBERNETES_VERSION)))
+CRICTL_VERSION     ?= $(KUBERNETES_MINOR).0
+CONTAINERD_VERSION ?= 2.3.7
+RUNC_VERSION       ?= v1.5.3
+# Empty means mkosi.prepare asks the downloaded kubeadm which pause image the
+# Kubernetes version expects. Set it to pin a specific image instead.
+PAUSE_IMAGE        ?=
 
 # ── Ubuntu version → codename mapping ─────────────────────────────────────────
 UBUNTU_CODENAME_24.04 := noble
@@ -69,7 +73,7 @@ MKOSI_ENV := \
 	--environment=CRICTL_VERSION=$(CRICTL_VERSION) \
 	--environment=CONTAINERD_VERSION=$(CONTAINERD_VERSION) \
 	--environment=RUNC_VERSION=$(RUNC_VERSION) \
-	--environment=PAUSE_IMAGE=$(PAUSE_IMAGE)
+	$(if $(PAUSE_IMAGE),--environment=PAUSE_IMAGE=$(PAUSE_IMAGE))
 
 MKOSI_SETTINGS := \
 	--architecture=$(MKOSI_ARCH) \
@@ -118,7 +122,7 @@ build-containerized: builder-image ## Build image inside container (cross-arch e
 		-e CRICTL_VERSION=$(CRICTL_VERSION) \
 		-e CONTAINERD_VERSION=$(CONTAINERD_VERSION) \
 		-e RUNC_VERSION=$(RUNC_VERSION) \
-		-e PAUSE_IMAGE=$(PAUSE_IMAGE) \
+		$(if $(PAUSE_IMAGE),-e PAUSE_IMAGE=$(PAUSE_IMAGE)) \
 		$(BUILDER_IMAGE) \
 		$(if $(FORCE),--force) \
 		$(MKOSI_ENV) \
@@ -197,10 +201,10 @@ help: ## Show this help
 	@echo "  ARCH                Target architecture            (default: $(ARCH); one of amd64, arm64; see 'make archs')"
 	@echo "  FORCE               Set to 1 to rebuild existing   (default: unset)"
 	@echo "  CNI_VERSION         CNI plugins version            (default: $(CNI_VERSION))"
-	@echo "  CRICTL_VERSION      crictl version                 (default: $(CRICTL_VERSION))"
+	@echo "  CRICTL_VERSION      crictl version                 (default: $(CRICTL_VERSION), from KUBERNETES_VERSION)"
 	@echo "  CONTAINERD_VERSION  containerd version             (default: $(CONTAINERD_VERSION))"
 	@echo "  RUNC_VERSION        runc version                   (default: $(RUNC_VERSION))"
-	@echo "  PAUSE_IMAGE         Pause container image          (default: $(PAUSE_IMAGE))"
+	@echo "  PAUSE_IMAGE         Pause container image          (default: $(or $(PAUSE_IMAGE),unset; asks kubeadm at build time))"
 	@echo "  OCI_REGISTRY        OCI registry hostname          (default: $(OCI_REGISTRY))"
 	@echo "  OCI_REPOSITORY      Full OCI repository path       (default: $(OCI_REPOSITORY))"
 	@echo "  OCI_TAG             OCI image tag                  (default: $(OCI_TAG))"
